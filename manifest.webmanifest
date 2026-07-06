@@ -1,0 +1,18 @@
+{
+  "name": "혈당 로그",
+  "short_name": "혈당로그",
+  "description": "개인용 혈당 기록과 인사이트 PWA",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f6f2",
+  "theme_color": "#166b5f",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

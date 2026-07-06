@@ -1,0 +1,23 @@
+# Local Firebase project state
+.firebaserc
+.firebase/
+firestore.rules
+firebase-debug.log
+firebase-debug.*.log
+
+# Local server logs
+server*.log
+server*.err
+
+# Environment and secret files
+.env
+.env.*
+*.local
+*serviceAccount*.json
+*service-account*.json
+firebase-service-account*.json
+
+# OS and editor noise
+.DS_Store
+Thumbs.db
+.vscode/
