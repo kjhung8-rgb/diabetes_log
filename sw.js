@@ -1,12 +1,12 @@
 "use strict";
 
-const CACHE_NAME = "glucose-log-pwa-v24";
+const CACHE_NAME = "glucose-log-pwa-v25";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=24",
-  "./app.js?v=24",
-  "./manifest.webmanifest?v=24",
+  "./styles.css?v=25",
+  "./app.js?v=25",
+  "./manifest.webmanifest?v=25",
   "./assets/images/icon.svg",
   "./assets/images/help-0.png",
   "./assets/images/help-1.png",

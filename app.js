@@ -1131,15 +1131,48 @@ function getVisibleReadings() {
 function filterReadingsByRange(readings, range) {
   if (range === "all") return [...readings];
 
-  const days = Number(range);
-  const cutoff = startOfDay(new Date());
-  cutoff.setDate(cutoff.getDate() - days + 1);
-  return readings.filter((reading) => new Date(reading.measuredAt) >= cutoff);
+  const recent = getRecentMeasuredReadings(readings, Number(range));
+  return recent ?? [...readings];
+}
+
+function getRecentMeasuredReadings(readings, days) {
+  const bounds = getRecentMeasuredDateBounds(readings, days);
+  if (!bounds) return null;
+  return readings.filter((reading) => isReadingMeasuredInBounds(reading, bounds));
+}
+
+function getRecentMeasuredDateBounds(readings, days) {
+  if (!Number.isFinite(days) || days < 1) return null;
+
+  const latestMeasuredAt = getLatestMeasuredAt(readings);
+  if (!latestMeasuredAt) return null;
+
+  const start = startOfDay(latestMeasuredAt);
+  start.setDate(start.getDate() - days + 1);
+
+  return {
+    start,
+    end: endOfDay(latestMeasuredAt),
+  };
+}
+
+function getLatestMeasuredAt(readings) {
+  return readings.reduce((latest, reading) => {
+    const measuredAt = new Date(reading.measuredAt);
+    if (Number.isNaN(measuredAt.getTime())) return latest;
+    return !latest || measuredAt > latest ? measuredAt : latest;
+  }, null);
+}
+
+function isReadingMeasuredInBounds(reading, bounds) {
+  const measuredAt = new Date(reading.measuredAt);
+  if (Number.isNaN(measuredAt.getTime())) return false;
+  return measuredAt >= bounds.start && measuredAt <= bounds.end;
 }
 
 function buildDailySeries(days) {
   const items = [];
-  const today = startOfDay(new Date());
+  const today = startOfDay(getLatestMeasuredAt(state.readings) ?? new Date());
 
   for (let index = days - 1; index >= 0; index -= 1) {
     const date = new Date(today);
@@ -1492,7 +1525,7 @@ function buildInsights(readings) {
     },
     {
       title: "최근 7일 알림",
-      body: buildPatternAlerts(state.readings).map((alertItem) => alertItem.text).join(" ") || "최근 7일 반복 패턴 알림이 없습니다.",
+      body: buildPatternAlerts(readings).map((alertItem) => alertItem.text).join(" ") || "최근 7일 반복 패턴 알림이 없습니다.",
     },
   ];
 }
@@ -1597,9 +1630,7 @@ function compareBooleanAverage(readings, key, trueLabel, falseLabel) {
 
 function buildPatternAlerts(readings) {
   const alerts = [];
-  const lastSevenCutoff = startOfDay(new Date());
-  lastSevenCutoff.setDate(lastSevenCutoff.getDate() - 6);
-  const recent = readings.filter((reading) => new Date(reading.measuredAt) >= lastSevenCutoff);
+  const recent = getRecentMeasuredReadings(readings, 7) ?? [];
   const morningFasting = recent.filter((reading) => reading.timing === "fasting" && getReadingPeriod(reading) === "morning");
   const byDay = groupBy(morningFasting, (reading) => toDateKey(new Date(reading.measuredAt)));
   const dailyMorning = Array.from(byDay.values()).map((dayReadings) => {
@@ -1842,6 +1873,10 @@ function parseDateKey(key) {
 
 function startOfDay(date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function endOfDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
 }
 
 function formatDate(date) {
