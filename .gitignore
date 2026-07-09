@@ -21,3 +21,6 @@ firebase-service-account*.json
 .DS_Store
 Thumbs.db
 .vscode/
+
+# backup file
+.bak
