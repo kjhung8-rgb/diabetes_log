@@ -803,6 +803,65 @@ svg {
   background: #fff;
 }
 
+.chart-tooltip {
+  position: fixed;
+  z-index: 1000;
+  min-width: 210px;
+  max-width: min(280px, calc(100vw - 16px));
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #f8faf8;
+  background: rgba(14, 16, 18, 0.95);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.chart-tooltip.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.chart-tooltip-title {
+  margin-bottom: 7px;
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.chart-tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  white-space: nowrap;
+}
+
+.chart-tooltip-row span {
+  color: #c9d0cc;
+}
+
+.chart-tooltip-row strong {
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.chart-tooltip-row .is-up {
+  color: #ff6f6f;
+}
+
+.chart-tooltip-row .is-down {
+  color: #6fa8ff;
+}
+
+.chart-tooltip-row .is-flat,
+.chart-tooltip-row .is-empty {
+  color: #c9d0cc;
+}
+
 .chart-legend {
   display: inline-flex;
   align-items: center;

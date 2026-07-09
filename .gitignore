@@ -24,3 +24,6 @@ Thumbs.db
 
 # backup file
 .bak
+
+# Backup files
+*.bak

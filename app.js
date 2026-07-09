@@ -159,6 +159,8 @@ function bindEvents() {
   window.addEventListener("resize", debounce(() => {
     renderCharts();
   }, 120));
+
+  [elements.weeklyChart, elements.monthlyChart].forEach(bindChartTooltip);
 }
 
 async function loadReadings() {
@@ -846,6 +848,7 @@ function renderSelectedDateList() {
 }
 
 function renderCharts() {
+  hideChartTooltip();
   renderLineChart(elements.weeklyChart, buildDailySeries(7));
   renderLineChart(elements.monthlyChart, buildDailySeries(30));
 }
@@ -906,20 +909,63 @@ function buildDailySeries(days) {
     const date = new Date(today);
     date.setDate(today.getDate() - index);
     const key = toDateKey(date);
-    const dayReadings = state.readings.filter((reading) => toDateKey(new Date(reading.measuredAt)) === key);
-    const fasting = dayReadings.filter((reading) => reading.timing === "fasting").map((reading) => reading.value);
-    const post = dayReadings.filter((reading) => reading.timing === "postprandial2h").map((reading) => reading.value);
+    const fasting = getDailyTimingSummary(key, "fasting");
+    const post = getDailyTimingSummary(key, "postprandial2h");
+    const previousFasting = getPreviousTimingSummary(key, "fasting");
+    const previousPost = getPreviousTimingSummary(key, "postprandial2h");
 
     items.push({
       label: `${date.getMonth() + 1}/${date.getDate()}`,
-      fasting: fasting.length ? Math.round(average(fasting)) : null,
-      postprandial2h: post.length ? Math.round(average(post)) : null,
+      dateLabel: key.replace(/-/g, "."),
+      fasting: fasting.average,
+      fastingCount: fasting.count,
+      fastingDelta: fasting.average === null || previousFasting.average === null ? null : fasting.average - previousFasting.average,
+      postprandial2h: post.average,
+      postprandial2hCount: post.count,
+      postprandial2hDelta: post.average === null || previousPost.average === null ? null : post.average - previousPost.average,
     });
   }
 
   return items;
 }
 
+function getDailyTimingSummary(dateKey, timing) {
+  const values = state.readings
+    .filter((reading) => reading.timing === timing && toDateKey(new Date(reading.measuredAt)) === dateKey)
+    .map((reading) => reading.value);
+
+  return {
+    average: values.length ? Math.round(average(values)) : null,
+    count: values.length,
+  };
+}
+
+function getPreviousTimingSummary(dateKey, timing) {
+  const valuesByDate = new Map();
+
+  state.readings.forEach((reading) => {
+    if (reading.timing !== timing) return;
+
+    const readingDateKey = toDateKey(new Date(reading.measuredAt));
+    if (readingDateKey >= dateKey) return;
+
+    if (!valuesByDate.has(readingDateKey)) {
+      valuesByDate.set(readingDateKey, []);
+    }
+    valuesByDate.get(readingDateKey).push(reading.value);
+  });
+
+  const previousDateKey = Array.from(valuesByDate.keys()).sort().pop();
+  if (!previousDateKey) {
+    return { average: null, count: 0 };
+  }
+
+  const values = valuesByDate.get(previousDateKey);
+  return {
+    average: Math.round(average(values)),
+    count: values.length,
+  };
+}
 function renderLineChart(canvas, series) {
   const context = canvas.getContext("2d");
   const rect = canvas.getBoundingClientRect();
@@ -933,6 +979,7 @@ function renderLineChart(canvas, series) {
   context.clearRect(0, 0, width, height);
 
   const values = series.flatMap((item) => [item.fasting, item.postprandial2h]).filter((value) => value !== null);
+  canvas._chartPoints = [];
 
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, width, height);
@@ -942,6 +989,7 @@ function renderLineChart(canvas, series) {
     context.font = "700 15px Segoe UI, sans-serif";
     context.textAlign = "center";
     context.fillText("표시할 데이터가 없습니다.", width / 2, height / 2);
+    hideChartTooltip();
     return;
   }
 
@@ -954,11 +1002,12 @@ function renderLineChart(canvas, series) {
   const xScale = (index) => padding.left + (series.length === 1 ? chartWidth / 2 : (index / (series.length - 1)) * chartWidth);
 
   drawGrid(context, padding, width, height, minValue, maxValue, yScale);
-  drawTargetLine(context, padding, chartWidth, yScale(130), "130", "#166b5f");
-  drawTargetLine(context, padding, chartWidth, yScale(180), "180", "#bb5a32");
+  drawTargetLine(context, padding, chartWidth, yScale(120), "120", "#166b5f");
+  drawTargetLine(context, padding, chartWidth, yScale(160), "160", "#bb5a32");
 
-  drawSeries(context, series, "fasting", "#166b5f", xScale, yScale);
-  drawSeries(context, series, "postprandial2h", "#bb5a32", xScale, yScale);
+  const fastingPoints = drawSeries(context, series, "fasting", "#166b5f", xScale, yScale);
+  const postPoints = drawSeries(context, series, "postprandial2h", "#bb5a32", xScale, yScale);
+  canvas._chartPoints = [...fastingPoints, ...postPoints];
 
   context.fillStyle = "#66706d";
   context.font = "700 11px Segoe UI, sans-serif";
@@ -1016,10 +1065,19 @@ function drawTargetLine(context, padding, chartWidth, y, label, color) {
 
 function drawSeries(context, series, key, color, xScale, yScale) {
   const points = series
-    .map((item, index) => ({ x: xScale(index), y: item[key] === null ? null : yScale(item[key]), value: item[key] }))
+    .map((item, index) => ({
+      x: xScale(index),
+      y: item[key] === null ? null : yScale(item[key]),
+      value: item[key],
+      count: item[`${key}Count`] || 0,
+      delta: item[`${key}Delta`],
+      dateLabel: item.dateLabel,
+      kindLabel: TARGETS[key]?.label || key,
+      color,
+    }))
     .filter((point) => point.y !== null);
 
-  if (!points.length) return;
+  if (!points.length) return [];
 
   context.strokeStyle = color;
   context.fillStyle = color;
@@ -1036,8 +1094,118 @@ function drawSeries(context, series, key, color, xScale, yScale) {
     context.arc(point.x, point.y, 3.5, 0, Math.PI * 2);
     context.fill();
   });
+
+  return points;
 }
 
+function bindChartTooltip(canvas) {
+  if (!canvas) return;
+
+  canvas.addEventListener("pointermove", handleChartPointer);
+  canvas.addEventListener("pointerdown", handleChartPointer);
+  canvas.addEventListener("pointerleave", hideChartTooltip);
+  canvas.addEventListener("pointercancel", hideChartTooltip);
+}
+
+function handleChartPointer(event) {
+  const canvas = event.currentTarget;
+  const point = findClosestChartPoint(canvas, event);
+
+  if (!point) {
+    hideChartTooltip();
+    return;
+  }
+
+  showChartTooltip(canvas, point);
+}
+
+function findClosestChartPoint(canvas, event) {
+  const points = canvas._chartPoints || [];
+  if (!points.length) return null;
+
+  const rect = canvas.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+  const hitRadius = event.pointerType === "mouse" ? 18 : 26;
+  let closest = null;
+  let closestDistance = Infinity;
+
+  points.forEach((point) => {
+    const distance = Math.hypot(point.x - x, point.y - y);
+    if (distance < closestDistance) {
+      closest = point;
+      closestDistance = distance;
+    }
+  });
+
+  return closestDistance <= hitRadius ? closest : null;
+}
+
+function showChartTooltip(canvas, point) {
+  const tooltip = getChartTooltip();
+  const delta = formatChartDelta(point.delta);
+  const rect = canvas.getBoundingClientRect();
+  const anchorX = rect.left + point.x;
+  const anchorY = rect.top + point.y;
+
+  tooltip.innerHTML = `
+    <div class="chart-tooltip-title">${escapeHtml(point.dateLabel)} | ${escapeHtml(point.kindLabel)}</div>
+    <div class="chart-tooltip-row"><span>평균 혈당</span><strong>${point.value} mg/dL</strong></div>
+    <div class="chart-tooltip-row"><span>측정 횟수</span><strong>${point.count}회</strong></div>
+    <div class="chart-tooltip-row"><span>최근 측정 변화량</span><strong class="${delta.className}">${delta.text}</strong></div>
+  `;
+  tooltip.classList.add("is-visible");
+  tooltip.style.left = "0px";
+  tooltip.style.top = "0px";
+
+  const tooltipRect = tooltip.getBoundingClientRect();
+  const gap = 12;
+  const margin = 8;
+  const left = Math.min(
+    Math.max(anchorX - tooltipRect.width / 2, margin),
+    window.innerWidth - tooltipRect.width - margin,
+  );
+  let top = anchorY - tooltipRect.height - gap;
+
+  if (top < margin) {
+    top = anchorY + gap;
+  }
+
+  tooltip.style.left = `${left}px`;
+  tooltip.style.top = `${top}px`;
+}
+
+function hideChartTooltip() {
+  const tooltip = document.querySelector(".chart-tooltip");
+  if (tooltip) tooltip.classList.remove("is-visible");
+}
+
+function getChartTooltip() {
+  let tooltip = document.querySelector(".chart-tooltip");
+  if (!tooltip) {
+    tooltip = document.createElement("div");
+    tooltip.className = "chart-tooltip";
+    tooltip.setAttribute("role", "tooltip");
+    document.body.appendChild(tooltip);
+  }
+  return tooltip;
+}
+
+function formatChartDelta(delta) {
+  if (delta === null || delta === undefined) {
+    return { text: "기록 없음", className: "is-empty" };
+  }
+
+  if (delta > 0) {
+    return { text: `+${delta}mg/dL`, className: "is-up" };
+  }
+
+  if (delta < 0) {
+    return { text: `${delta}mg/dL`, className: "is-down" };
+  }
+
+  return { text: "0mg/dL", className: "is-flat" };
+}
 function buildInsights(readings) {
   const fasting = readings.filter((reading) => reading.timing === "fasting");
   const post = readings.filter((reading) => reading.timing === "postprandial2h");
