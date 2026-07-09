@@ -1,12 +1,12 @@
 "use strict";
 
-const CACHE_NAME = "glucose-log-pwa-v20";
+const CACHE_NAME = "glucose-log-pwa-v24";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=20",
-  "./app.js?v=20",
-  "./manifest.webmanifest?v=20",
+  "./styles.css?v=24",
+  "./app.js?v=24",
+  "./manifest.webmanifest?v=24",
   "./assets/images/icon.svg",
   "./assets/images/help-0.png",
   "./assets/images/help-1.png",
@@ -34,6 +34,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/__/")) return;
 
   event.respondWith(

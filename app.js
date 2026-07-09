@@ -3,6 +3,9 @@
 const DB_NAME = "glucose-log-db";
 const DB_VERSION = 1;
 const STORE_NAME = "readings";
+const SYNC_CURSOR_PREFIX = "glucose-log-last-pulled-at";
+const SYNC_PENDING_PUSH_PREFIX = "glucose-log-pending-push-ids";
+const RECORDS_PER_PAGE = 50;
 
 const TARGETS = {
   fasting: { label: "공복", min: 80, max: 130 },
@@ -30,6 +33,7 @@ const state = {
   activeTab: "dashboard",
   rangeFilter: "30",
   timingFilter: "all",
+  recordsPage: 1,
   selectedDate: toDateKey(new Date()),
   calendarMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
   isPeriodManuallySelected: false,
@@ -42,6 +46,7 @@ const state = {
     isAvailable: false,
     isSyncing: false,
     lastSyncedAt: null,
+    lastPulledAt: null,
   },
 };
 
@@ -66,6 +71,7 @@ const elements = {
   recentList: $("#recentList"),
   recordList: $("#recordList"),
   recordCountLabel: $("#recordCountLabel"),
+  recordPagination: $("#recordPagination"),
   rangeFilter: $("#rangeFilter"),
   timingFilter: $("#timingFilter"),
   calendarTitle: $("#calendarTitle"),
@@ -119,10 +125,12 @@ function bindEvents() {
   });
   elements.rangeFilter.addEventListener("change", (event) => {
     state.rangeFilter = event.target.value;
+    state.recordsPage = 1;
     render();
   });
   elements.timingFilter.addEventListener("change", (event) => {
     state.timingFilter = event.target.value;
+    state.recordsPage = 1;
     renderRecords();
   });
   elements.cloudSignInButton.addEventListener("click", signInToCloud);
@@ -148,9 +156,20 @@ function bindEvents() {
   });
 
   document.addEventListener("click", (event) => {
+    const pageButton = event.target.closest("[data-record-page]");
     const editButton = event.target.closest("[data-edit-id]");
     const deleteButton = event.target.closest("[data-delete-id]");
     const dayButton = event.target.closest("[data-calendar-date]");
+
+    if (pageButton) {
+      const nextPage = Number(pageButton.dataset.recordPage);
+      if (Number.isInteger(nextPage) && nextPage > 0) {
+        state.recordsPage = nextPage;
+        renderRecords();
+        elements.recordList.scrollIntoView({ block: "start" });
+      }
+      return;
+    }
 
     if (editButton) {
       startEdit(editButton.dataset.editId);
@@ -213,7 +232,6 @@ function initCloudSync() {
 
     updateSyncUi("클라우드 백업을 준비 중입니다.");
     await syncWithCloud();
-    startCloudListener();
   });
 }
 
@@ -247,12 +265,13 @@ async function signOutFromCloud() {
   updateSyncUi("로그인이 필요합니다.");
 }
 
-async function syncWithCloud() {
+async function syncWithCloud(options = {}) {
   if (!state.cloud.user || !state.cloud.db || state.cloud.isSyncing) {
     updateSyncUi();
     return;
   }
 
+  const forcePushAll = Boolean(options.forcePushAll);
   state.cloud.isSyncing = true;
   updateSyncUi("동기화 중입니다.");
 
@@ -260,30 +279,86 @@ async function syncWithCloud() {
     await loadReadings();
     const localById = new Map(state.readings.map((reading) => [reading.id, reading]));
     const collection = getCloudReadingsCollection();
-    const snapshot = await collection.get();
-    const cloudById = new Map();
+    const lastPulledAt = getCloudPullCursor();
+    const snapshot = await getCloudChangesSnapshot(collection, lastPulledAt);
+    const cloudChangesById = new Map();
+    let newestPulledTimestamp = lastPulledAt;
+    let newestSyncedTimestamp = lastPulledAt;
+    let changed = false;
 
     snapshot.forEach((doc) => {
-      const reading = normalizeReading({ id: doc.id, ...doc.data() });
-      if (reading) cloudById.set(reading.id, reading);
+      const cloudData = { id: doc.id, ...doc.data() };
+      cloudChangesById.set(doc.id, cloudData);
+      const cloudTimestamp = getRecordSyncTimestamp(cloudData);
+      newestPulledTimestamp = maxIsoTimestamp(newestPulledTimestamp, cloudTimestamp);
+      newestSyncedTimestamp = maxIsoTimestamp(newestSyncedTimestamp, cloudTimestamp);
     });
 
-    for (const cloudReading of cloudById.values()) {
+    for (const cloudData of cloudChangesById.values()) {
+      if (isDeletedReading(cloudData)) {
+        const localReading = localById.get(cloudData.id);
+        if (localReading && isNewerReading(localReading, cloudData)) continue;
+
+        await removeReading(cloudData.id);
+        changed = true;
+        continue;
+      }
+
+      const cloudReading = normalizeReading(cloudData);
+      if (!cloudReading) continue;
+
       const localReading = localById.get(cloudReading.id);
       if (!localReading || isNewerReading(cloudReading, localReading)) {
         await putReading(cloudReading);
+        changed = true;
       }
     }
 
     await loadReadings();
-    const writes = state.readings.map((reading) => {
-      const cloudReading = cloudById.get(reading.id);
-      if (cloudReading && isNewerReading(cloudReading, reading)) return null;
-      return collection.doc(reading.id).set(toCloudReading(reading), { merge: true });
-    }).filter(Boolean);
 
-    await Promise.all(writes);
-    await saveCloudMeta();
+    const pendingPushIds = getCloudPendingPushIds();
+    const writeReadings = state.readings.map((reading) => {
+      const cloudData = cloudChangesById.get(reading.id);
+      const cloudReading = isDeletedReading(cloudData) ? null : normalizeReading(cloudData);
+      const shouldConsiderLocal = forcePushAll
+        || pendingPushIds.has(reading.id)
+        || !lastPulledAt
+        || isTimestampAfter(getRecordSyncTimestamp(reading), lastPulledAt);
+
+      if (!shouldConsiderLocal) return null;
+      if (cloudReading && !isNewerReading(reading, cloudReading)) return null;
+
+      return reading;
+    }).filter(Boolean);
+    const canSavePullCursor = writeReadings.length
+      ? setCloudPendingPushIds(writeReadings.map((reading) => reading.id))
+      : true;
+
+    if (!writeReadings.length) {
+      clearCloudPendingPushIds();
+    }
+
+    if (newestPulledTimestamp && canSavePullCursor) {
+      setCloudPullCursor(newestPulledTimestamp);
+    }
+
+    if (writeReadings.length) {
+      await Promise.all(writeReadings.map((reading) => (
+        collection.doc(reading.id).set(toCloudReading(reading), { merge: true })
+      )));
+      clearCloudPendingPushIds();
+      newestSyncedTimestamp = maxIsoTimestamp(
+        newestSyncedTimestamp,
+        ...writeReadings.map(getRecordSyncTimestamp),
+      );
+      changed = true;
+    }
+
+    if (newestSyncedTimestamp) {
+      setCloudPullCursor(newestSyncedTimestamp);
+    }
+
+    await saveCloudMeta(newestSyncedTimestamp);
     await loadReadings();
     render();
     applySuggestedPeriodSelection();
@@ -298,45 +373,9 @@ async function syncWithCloud() {
     updateSyncUi();
   }
 }
-
 function startCloudListener() {
-  if (!state.cloud.user || !state.cloud.db) return;
-
-  state.cloud.unsubscribe = getCloudReadingsCollection().onSnapshot(async (snapshot) => {
-    let changed = false;
-
-    for (const change of snapshot.docChanges()) {
-      if (change.type === "removed") {
-        await removeReading(change.doc.id);
-        changed = true;
-        continue;
-      }
-
-      const cloudReading = normalizeReading({ id: change.doc.id, ...change.doc.data() });
-      if (!cloudReading) continue;
-
-      const localReading = state.readings.find((reading) => reading.id === cloudReading.id);
-      if (!localReading || isNewerReading(cloudReading, localReading)) {
-        await putReading(cloudReading);
-        changed = true;
-      }
-    }
-
-    if (changed) {
-      await loadReadings();
-      render();
-      applySuggestedPeriodSelection();
-      applySuggestedTimingSelection();
-    }
-
-    state.cloud.lastSyncedAt = new Date();
-    updateSyncUi();
-  }, (error) => {
-    console.error(error);
-    updateSyncUi("클라우드 변경사항을 받지 못했습니다.");
-  });
+  // Real-time listeners are intentionally disabled. Manual and startup sync use an incremental pull cursor instead.
 }
-
 function stopCloudListener() {
   if (state.cloud.unsubscribe) {
     state.cloud.unsubscribe();
@@ -363,25 +402,28 @@ async function syncCloudReading(reading) {
   }
 }
 
-async function deleteCloudReading(id) {
+async function deleteCloudReading(reading) {
   if (!state.cloud.user || !state.cloud.db) {
     updateSyncUi();
     return;
   }
 
-  updateSyncUi("클라우드에서 삭제 중입니다.");
+  const id = typeof reading === "string" ? reading : reading?.id;
+  if (!id) return;
+
+  const deletedAt = new Date().toISOString();
+  updateSyncUi("클라우드에서 삭제 표시 중입니다.");
 
   try {
-    await getCloudReadingsCollection().doc(id).delete();
+    await getCloudReadingsCollection().doc(id).set(toCloudDeletedReading(reading, deletedAt), { merge: true });
     await saveCloudMeta();
     state.cloud.lastSyncedAt = new Date();
     updateSyncUi();
   } catch (error) {
     console.error(error);
-    updateSyncUi("클라우드 삭제에 실패했습니다. 로컬에서는 삭제되었습니다.");
+    updateSyncUi("클라우드 삭제 표시를 저장하지 못했습니다. 로컬에서는 삭제되었습니다.");
   }
 }
-
 function getCloudReadingsCollection() {
   return state.cloud.db.collection("users").doc(state.cloud.user.uid).collection("readings");
 }
@@ -403,22 +445,142 @@ function toCloudReading(reading) {
     memo: reading.memo ?? "",
     createdAt: reading.createdAt,
     updatedAt: reading.updatedAt,
+    isDeleted: false,
+    deletedAt: null,
   };
 }
 
+function toCloudDeletedReading(reading, deletedAt) {
+  const source = typeof reading === "object" && reading ? reading : {};
+  const fallbackDate = source.measuredAt ?? deletedAt;
+
+  return {
+    value: Number.isFinite(Number(source.value)) ? Number(source.value) : 0,
+    unit: source.unit ?? "mg/dL",
+    measuredAt: fallbackDate,
+    period: PERIODS[source.period] ? source.period : inferPeriodFromDate(new Date(fallbackDate)),
+    timing: TARGETS[source.timing] ? source.timing : "fasting",
+    mealNote: source.mealNote ?? "",
+    exercised: Boolean(source.exercised),
+    medicationTaken: Boolean(source.medicationTaken),
+    memo: source.memo ?? "",
+    createdAt: source.createdAt ?? deletedAt,
+    updatedAt: deletedAt,
+    isDeleted: true,
+    deletedAt,
+  };
+}
 function isNewerReading(left, right) {
-  return new Date(left.updatedAt ?? left.measuredAt).getTime() > new Date(right.updatedAt ?? right.measuredAt).getTime();
+  return isTimestampAfter(getRecordSyncTimestamp(left), getRecordSyncTimestamp(right));
 }
 
-async function saveCloudMeta() {
+function isDeletedReading(reading) {
+  return Boolean(reading?.isDeleted || reading?.deletedAt);
+}
+
+function getRecordSyncTimestamp(reading) {
+  return reading?.updatedAt ?? reading?.deletedAt ?? reading?.measuredAt ?? reading?.createdAt ?? "";
+}
+
+function isTimestampAfter(left, right) {
+  if (!left) return false;
+  if (!right) return true;
+  return new Date(left).getTime() > new Date(right).getTime();
+}
+
+function maxIsoTimestamp(...values) {
+  return values.filter(Boolean).reduce((latest, value) => (
+    isTimestampAfter(value, latest) ? value : latest
+  ), "");
+}
+
+function getCloudPullCursorKey() {
+  return `${SYNC_CURSOR_PREFIX}:${state.cloud.user.uid}`;
+}
+
+function getCloudPullCursor() {
+  if (!state.cloud.user) return "";
+
+  try {
+    const cursor = localStorage.getItem(getCloudPullCursorKey()) ?? "";
+    state.cloud.lastPulledAt = cursor ? new Date(cursor) : null;
+    return cursor;
+  } catch {
+    return "";
+  }
+}
+
+function setCloudPullCursor(timestamp) {
+  if (!state.cloud.user || !timestamp) return;
+
+  try {
+    localStorage.setItem(getCloudPullCursorKey(), timestamp);
+    state.cloud.lastPulledAt = new Date(timestamp);
+  } catch {
+    state.cloud.lastPulledAt = new Date(timestamp);
+  }
+}
+
+function getCloudPendingPushKey() {
+  return `${SYNC_PENDING_PUSH_PREFIX}:${state.cloud.user.uid}`;
+}
+
+function getCloudPendingPushIds() {
+  if (!state.cloud.user) return new Set();
+
+  try {
+    const ids = JSON.parse(localStorage.getItem(getCloudPendingPushKey()) || "[]");
+    return new Set(Array.isArray(ids) ? ids.filter((id) => typeof id === "string" && id) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function setCloudPendingPushIds(ids) {
+  if (!state.cloud.user) return false;
+
+  const uniqueIds = [...new Set(ids.filter(Boolean))];
+  try {
+    if (uniqueIds.length) {
+      localStorage.setItem(getCloudPendingPushKey(), JSON.stringify(uniqueIds));
+    } else {
+      localStorage.removeItem(getCloudPendingPushKey());
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function clearCloudPendingPushIds() {
+  if (!state.cloud.user) return true;
+
+  try {
+    localStorage.removeItem(getCloudPendingPushKey());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getCloudChangesSnapshot(collection, lastPulledAt) {
+  if (!lastPulledAt) return collection.get();
+  return collection.where("updatedAt", ">", lastPulledAt).orderBy("updatedAt").get();
+}
+async function saveCloudMeta(lastPulledAt = null) {
   if (!state.cloud.user || !state.cloud.db) return;
 
-  await getCloudMetaDoc().set({
+  const payload = {
     lastSyncedAt: new Date().toISOString(),
     userEmail: state.cloud.user.email ?? "",
-  }, { merge: true });
-}
+  };
 
+  if (lastPulledAt) {
+    payload.lastPulledAt = lastPulledAt;
+  }
+
+  await getCloudMetaDoc().set(payload, { merge: true });
+}
 function updateSyncUi(message) {
   const signedIn = Boolean(state.cloud.user);
   const email = state.cloud.user?.email ?? "";
@@ -527,7 +689,7 @@ async function deleteReading(id) {
   render();
   applySuggestedPeriodSelection();
   applySuggestedTimingSelection();
-  deleteCloudReading(id);
+  deleteCloudReading(reading);
 }
 
 function resetForm() {
@@ -638,8 +800,60 @@ function renderRecentList() {
 
 function renderRecords() {
   const readings = getVisibleReadings();
-  elements.recordCountLabel.textContent = readings.length ? `${readings.length}개 기록` : "표시할 기록이 없습니다.";
-  renderRecordList(elements.recordList, readings);
+  const pageCount = Math.max(1, Math.ceil(readings.length / RECORDS_PER_PAGE));
+  state.recordsPage = Math.min(Math.max(state.recordsPage, 1), pageCount);
+
+  const startIndex = (state.recordsPage - 1) * RECORDS_PER_PAGE;
+  const pageReadings = readings.slice(startIndex, startIndex + RECORDS_PER_PAGE);
+  const endIndex = startIndex + pageReadings.length;
+
+  elements.recordCountLabel.textContent = readings.length
+    ? `${readings.length}개 기록 · ${startIndex + 1}-${endIndex} 표시`
+    : "표시할 기록이 없습니다.";
+  renderRecordList(elements.recordList, pageReadings);
+  renderRecordPagination(readings.length, pageCount);
+}
+
+function renderRecordPagination(totalCount, pageCount) {
+  if (!elements.recordPagination) return;
+
+  if (totalCount <= RECORDS_PER_PAGE) {
+    elements.recordPagination.classList.add("hidden");
+    elements.recordPagination.innerHTML = "";
+    return;
+  }
+
+  const windowSize = 10;
+  const currentPage = state.recordsPage;
+  const windowStart = Math.floor((currentPage - 1) / windowSize) * windowSize + 1;
+  const windowEnd = Math.min(windowStart + windowSize - 1, pageCount);
+  const pageButtons = [];
+
+  pageButtons.push(renderPageButton("<<", 1, currentPage === 1, "처음 페이지"));
+  pageButtons.push(renderPageButton("<", Math.max(1, currentPage - 1), currentPage === 1, "이전 페이지"));
+
+  for (let page = windowStart; page <= windowEnd; page += 1) {
+    pageButtons.push(renderPageButton(String(page), page, false, `${page}페이지`, page === currentPage));
+  }
+
+  pageButtons.push(renderPageButton(">", Math.min(pageCount, currentPage + 1), currentPage === pageCount, "다음 페이지"));
+  pageButtons.push(renderPageButton(">>", pageCount, currentPage === pageCount, "마지막 페이지"));
+
+  elements.recordPagination.classList.remove("hidden");
+  elements.recordPagination.innerHTML = pageButtons.join("");
+}
+
+function renderPageButton(label, page, disabled, ariaLabel, isActive = false) {
+  return `
+    <button
+      class="page-button ${isActive ? "is-active" : ""}"
+      type="button"
+      data-record-page="${page}"
+      aria-label="${escapeHtml(ariaLabel)}"
+      ${isActive ? 'aria-current="page"' : ""}
+      ${disabled ? "disabled" : ""}
+    >${escapeHtml(label)}</button>
+  `;
 }
 
 function renderRecordList(container, readings) {
@@ -1496,7 +1710,7 @@ async function importBackup(event) {
 
     await loadReadings();
     render();
-    syncWithCloud();
+    syncWithCloud({ forcePushAll: true });
     alert("복원이 완료되었습니다.");
   } catch (error) {
     console.error(error);

@@ -694,6 +694,40 @@ svg {
   gap: 8px;
 }
 
+.record-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.page-button {
+  min-width: 38px;
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background: #fff;
+  padding: 0 10px;
+  font-weight: 800;
+}
+
+.page-button:hover:not(:disabled) {
+  background: rgba(22, 107, 95, 0.1);
+}
+
+.page-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.page-button.is-active {
+  border-color: var(--primary);
+  color: #fff;
+  background: var(--primary);
+}
+
 .record-card {
   display: grid;
   grid-template-columns: 92px minmax(0, 1fr) auto;
@@ -1237,6 +1271,7 @@ svg {
   .slot-check-grid,
   .metric-grid,
   .record-list,
+  .record-pagination,
   .calendar-shell,
   .calendar-grid,
   .insight-grid {
@@ -1329,6 +1364,7 @@ svg {
   .slot-check-grid,
   .metric-grid,
   .record-list,
+  .record-pagination,
   .calendar-shell,
   .calendar-grid,
   .insight-grid,
@@ -1357,5 +1393,60 @@ svg {
 
   .weekday {
     display: none !important;
+  }
+}
+@media (max-width: 640px), (pointer: coarse) {
+  .calendar-shell {
+    overflow-x: auto !important;
+    padding-bottom: 8px !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .calendar-grid {
+    width: max-content !important;
+    min-width: 720px !important;
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    gap: 4px !important;
+  }
+
+  .weekday {
+    display: block !important;
+    min-height: 28px !important;
+  }
+
+  .calendar-day {
+    display: grid !important;
+    grid-template-columns: none !important;
+    min-height: 154px !important;
+    align-content: start !important;
+    gap: 5px !important;
+    padding: 8px !important;
+  }
+
+  .calendar-day strong {
+    grid-row: auto !important;
+    min-width: 0 !important;
+    font-size: 0.88rem !important;
+  }
+
+  .calendar-avg,
+  .calendar-count {
+    display: block !important;
+  }
+
+  .calendar-slots {
+    grid-column: auto !important;
+    grid-template-columns: 1fr !important;
+    gap: 3px !important;
+  }
+
+  .calendar-slot {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 4px !important;
+  }
+
+  .calendar-slot b,
+  .calendar-slot em {
+    font-size: 0.68rem !important;
   }
 }
