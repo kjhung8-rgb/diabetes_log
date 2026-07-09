@@ -12,20 +12,26 @@
       ".git/**",
       ".gitignore",
       ".firebase/**",
+      "logs/**",
+      "docs/**",
+      "assets/source/**",
       "*.bak",
       "**/*.bak",
+      "*.zip",
+      "**/*.zip",
       "firebase-debug.log",
       "firebase-debug.log.*",
       "*.log",
       "*.err",
       "firestore.rules",
+      "firestore.rules.example",
       "README.md",
       "server*.log",
       "server*.err"
     ],
     "headers": [
       {
-        "source": "**/*.@(js|css|svg|webmanifest)",
+        "source": "**/*.@(js|css|svg|png|webmanifest)",
         "headers": [
           {
             "key": "Cache-Control",

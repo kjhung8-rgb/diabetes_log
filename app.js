@@ -81,6 +81,9 @@ const elements = {
   cloudSignInButton: $("#cloudSignInButton"),
   cloudSyncButton: $("#cloudSyncButton"),
   cloudSignOutButton: $("#cloudSignOutButton"),
+  helpButton: $("#helpButton"),
+  helpModal: $("#helpModal"),
+  helpCloseButton: $("#helpCloseButton"),
 };
 
 document.addEventListener("DOMContentLoaded", init);
@@ -125,6 +128,14 @@ function bindEvents() {
   elements.cloudSignInButton.addEventListener("click", signInToCloud);
   elements.cloudSyncButton.addEventListener("click", syncWithCloud);
   elements.cloudSignOutButton.addEventListener("click", signOutFromCloud);
+  elements.helpButton.addEventListener("click", openHelpModal);
+  elements.helpCloseButton.addEventListener("click", closeHelpModal);
+  elements.helpModal.addEventListener("click", (event) => {
+    if (event.target.closest("[data-help-close]")) closeHelpModal();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !elements.helpModal.classList.contains("hidden")) closeHelpModal();
+  });
   $("#prevMonthButton").addEventListener("click", () => changeMonth(-1));
   $("#nextMonthButton").addEventListener("click", () => changeMonth(1));
 
@@ -163,6 +174,17 @@ function bindEvents() {
   [elements.weeklyChart, elements.monthlyChart].forEach(bindChartTooltip);
 }
 
+function openHelpModal() {
+  elements.helpModal.classList.remove("hidden");
+  document.body.classList.add("has-modal");
+  elements.helpCloseButton.focus();
+}
+
+function closeHelpModal() {
+  elements.helpModal.classList.add("hidden");
+  document.body.classList.remove("has-modal");
+  elements.helpButton.focus();
+}
 async function loadReadings() {
   state.readings = await getAllReadings();
   sortReadings();

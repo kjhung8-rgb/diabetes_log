@@ -1,13 +1,18 @@
 "use strict";
 
-const CACHE_NAME = "glucose-log-pwa-v15";
+const CACHE_NAME = "glucose-log-pwa-v19";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=15",
-  "./app.js?v=15",
-  "./manifest.webmanifest?v=15",
-  "./icon.svg",
+  "./styles.css?v=19",
+  "./app.js?v=19",
+  "./manifest.webmanifest?v=19",
+  "./assets/images/icon.svg",
+  "./assets/images/help-0.png",
+  "./assets/images/help-1.png",
+  "./assets/images/help-2.png",
+  "./assets/images/help-3.png",
+  "./assets/images/help-4.png",
 ];
 
 self.addEventListener("install", (event) => {

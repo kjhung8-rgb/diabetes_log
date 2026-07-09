@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#166b5f" />
     <title>혈당 로그</title>
-    <link rel="manifest" href="./manifest.webmanifest?v=15" />
-    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=15" />
+    <link rel="manifest" href="./manifest.webmanifest?v=19" />
+    <link rel="icon" href="./assets/images/icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css?v=19" />
   </head>
   <body>
     <div class="app-shell">
@@ -16,7 +16,7 @@
           <p class="eyebrow">개인 기록용</p>
           <h1>혈당 로그</h1>
         </div>
-
+        <button class="help-button" id="helpButton" type="button" aria-label="사용 방법 열기" title="사용 방법">?</button>
       </header>
 
       <section class="daily-checklist" aria-labelledby="todaySlotChecklistTitle">
@@ -220,6 +220,71 @@
       </main>
     </div>
 
+    <div class="help-modal hidden" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
+      <button class="help-modal-backdrop" data-help-close type="button" aria-label="사용 방법 닫기"></button>
+      <section class="help-dialog" aria-describedby="helpModalDescription">
+        <div class="help-modal-header">
+          <div>
+            <p class="eyebrow">도움말</p>
+            <h2 id="helpModalTitle">사용 방법</h2>
+          </div>
+          <button class="help-close-button" id="helpCloseButton" data-help-close type="button" aria-label="사용 방법 닫기">×</button>
+        </div>
+
+        <div class="help-intro" id="helpModalDescription">
+          <p>이 페이지는 혈당을 기록하고, 변화 추이를 확인하며, 최근 기록을 바탕으로 혈당 관리 패턴을 파악할 수 있도록 도와줍니다.</p>
+          <p>혈당 수치를 입력하면 기록 목록, 그래프, 인사이트 화면에 자동으로 반영되어 자신의 혈당 흐름을 더 쉽게 관리할 수 있습니다.</p>
+          <p class="help-warning">※ 본 서비스는 혈당 기록과 관리 보조를 위한 기능이며, 의료적 진단이나 치료를 대신하지 않습니다. 혈당 수치에 이상이 있거나 건강 관련 판단이 필요한 경우 의료진과 상담하는 것이 좋습니다.</p>
+        </div>
+
+        <div class="help-guide-list">
+          <article class="help-guide-item">
+            <h3>1. 오늘의 혈당 체크 현황</h3>
+            <img class="help-guide-image" src="./assets/images/help-0.png" alt="오늘의 혈당 체크 현황 화면" />
+            <div class="help-guide-copy">
+              <p>하루 동안 필요한 혈당 측정 항목을 체크리스트 형태로 확인할 수 있는 화면입니다.</p>
+              <p>아침 공복, 아침 식후 2시간, 점심 공복, 점심 식후 2시간, 저녁 공복, 저녁 식후 2시간 기록 여부를 확인할 수 있습니다.</p>
+            </div>
+          </article>
+
+          <article class="help-guide-item">
+            <h3>2. 대시보드</h3>
+            <img class="help-guide-image" src="./assets/images/help-1.png" alt="대시보드 화면" />
+            <div class="help-guide-copy">
+              <p>혈당 수치를 직접 입력하고 측정 정보를 함께 저장하는 화면입니다. 혈당 수치는 mg/dL 단위로 입력하며, 측정 일시를 선택할 수 있습니다.</p>
+              <p>아침, 점심, 저녁 중 식사 시간을 선택하고, 공복 또는 식후 2시간 후 측정인지 구분할 수 있습니다. 식사 메모, 운동 여부, 약 복용 여부, 컨디션이나 수면, 스트레스 등 추가 메모도 함께 기록할 수 있습니다.</p>
+              <p>입력한 정보는 혈당 기록, 그래프, 인사이트 분석에 반영됩니다.</p>
+            </div>
+          </article>
+
+          <article class="help-guide-item">
+            <h3>3. 혈당 기록 목록</h3>
+            <img class="help-guide-image" src="./assets/images/help-2.png" alt="혈당 기록 목록 화면" />
+            <div class="help-guide-copy">
+              <p>최근 혈당 기록을 카드 형태로 확인할 수 있는 화면입니다. 각 기록에는 혈당 수치, 측정 시간, 식사 구분, 공복/식후 여부, 운동 여부, 약 복용 여부가 함께 표시됩니다.</p>
+              <p>상단 필터를 이용해 최근 30일 기록을 보거나, 전체 기록 중 원하는 조건의 기록만 확인할 수 있습니다. 각 기록 오른쪽의 수정 버튼과 삭제 버튼을 통해 기존 기록을 편집하거나 삭제할 수 있습니다.</p>
+            </div>
+          </article>
+
+          <article class="help-guide-item">
+            <h3>4. 혈당 변화 그래프</h3>
+            <img class="help-guide-image" src="./assets/images/help-3.png" alt="혈당 변화 그래프 화면" />
+            <div class="help-guide-copy">
+              <p>주간/월간 단위로 혈당 변화를 한눈에 확인할 수 있는 화면입니다. 공복 혈당과 식후 2시간 후 혈당이 서로 다른 색상으로 표시되며, 날짜별 변화 추이를 쉽게 비교할 수 있습니다.</p>
+              <p>그래프의 점을 선택하면 해당 날짜의 혈당 수치, 측정 횟수, 최근 측정 변화량을 확인할 수 있습니다. 점선 기준선은 목표 혈당 범위를 나타내며, 기록된 혈당이 목표 범위 안에 있는지 빠르게 파악할 수 있습니다.</p>
+            </div>
+          </article>
+
+          <article class="help-guide-item">
+            <h3>5. 혈당 분석 인사이트</h3>
+            <img class="help-guide-image" src="./assets/images/help-4.png" alt="혈당 분석 인사이트 화면" />
+            <div class="help-guide-copy">
+              <p>최근 30일간 입력한 혈당 기록을 바탕으로 주요 패턴을 요약해서 보여주는 화면입니다. 공복 혈당 추세, 식후 혈당 패턴, 혈당이 자주 높게 나타나는 시간대, 목표 범위 비율 등을 확인할 수 있습니다.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
     <template id="emptyTemplate">
       <div class="empty-state">
         <strong>기록이 없습니다.</strong>
@@ -231,6 +296,6 @@
     <script src="/__/firebase/8.10.1/firebase-auth.js"></script>
     <script src="/__/firebase/8.10.1/firebase-firestore.js"></script>
     <script src="/__/firebase/init.js"></script>
-    <script src="./app.js?v=15" defer></script>
+    <script src="./app.js?v=19" defer></script>
   </body>
 </html>

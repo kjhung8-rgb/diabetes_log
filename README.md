@@ -61,7 +61,7 @@ npm install -g firebase-tools
 
 설치 직후 `npm` 또는 `firebase` 명령이 인식되지 않으면 PowerShell을 새로 열고 다시 실행합니다.
 
-Firebase 프로젝트를 연결하려면 `.firebaserc.example`을 `.firebaserc`로 복사한 뒤 프로젝트 ID를 입력합니다.
+Firebase 프로젝트를 연결하려면 `docs/examples/.firebaserc.example`을 `.firebaserc`로 복사한 뒤 프로젝트 ID를 입력합니다.
 
 ```json
 {
@@ -71,10 +71,10 @@ Firebase 프로젝트를 연결하려면 `.firebaserc.example`을 `.firebaserc`�
 }
 ```
 
-Firestore 규칙은 개인 이메일이 들어가는 로컬 설정 파일입니다. Git에는 예시 파일만 포함하므로, 처음 설정할 때 `firestore.rules.example`을 `firestore.rules`로 복사한 뒤 허용 이메일 목록을 본인이 사용할 계정으로 수정합니다.
+Firestore 규칙은 개인 이메일이 들어가는 로컬 설정 파일입니다. Git에는 예시 파일만 포함하므로, 처음 설정할 때 `docs/examples/firestore.rules.example`을 `firestore.rules`로 복사한 뒤 허용 이메일 목록을 본인이 사용할 계정으로 수정합니다.
 
 ```powershell
-Copy-Item firestore.rules.example firestore.rules
+Copy-Item docs/examples/firestore.rules.example firestore.rules
 ```
 
 ```js
@@ -118,9 +118,8 @@ Firestore 규칙은 로그인한 사용자가 자신의 `uid` 경로에만 접�
 - `.firebaserc`
 - `.firebase/`
 - `firestore.rules`
-- `firebase-debug.log`
-- `server*.log`
-- `server*.err`
+- `logs/`
+- `assets/source/`
 - `.env*`
 - Firebase service account JSON 파일
 
