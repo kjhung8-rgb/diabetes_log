@@ -801,10 +801,17 @@ svg {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
 }
 
 .chart-tooltip {
   position: fixed;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
   z-index: 1000;
   min-width: 210px;
   max-width: min(280px, calc(100vw - 16px));

@@ -1105,8 +1105,14 @@ function bindChartTooltip(canvas) {
   canvas.addEventListener("pointerdown", handleChartPointer);
   canvas.addEventListener("pointerleave", hideChartTooltip);
   canvas.addEventListener("pointercancel", hideChartTooltip);
+  canvas.addEventListener("contextmenu", preventChartSelection);
+  canvas.addEventListener("selectstart", preventChartSelection);
+  canvas.addEventListener("dragstart", preventChartSelection);
 }
 
+function preventChartSelection(event) {
+  event.preventDefault();
+}
 function handleChartPointer(event) {
   const canvas = event.currentTarget;
   const point = findClosestChartPoint(canvas, event);
