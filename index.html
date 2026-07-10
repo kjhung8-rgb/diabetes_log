@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#166b5f" />
     <title>하루 혈당 기록</title>
-    <link rel="manifest" href="./manifest.webmanifest?v=25" />
+    <link rel="manifest" href="./manifest.webmanifest?v=26" />
     <link rel="icon" href="./assets/images/icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=25" />
+    <link rel="stylesheet" href="./styles.css?v=26" />
   </head>
   <body>
     <div class="app-shell">
@@ -240,7 +240,15 @@
 
         <div class="help-guide-list">
           <article class="help-guide-item">
-            <h3>1. 오늘의 혈당 체크 현황</h3>
+            <h3>1. 홈화면에 추가해서 사용하기</h3>
+            <img class="help-guide-image" src="./assets/images/help-5.png" alt="웹앱을 홈화면에 추가하는 방법 안내" />
+            <div class="help-guide-copy">
+              <p>본 웹사이트는 웹앱으로 Chrome, Safari 등을 통해 홈화면에 추가 후 사용하면 더욱 편리합니다.</p>
+            </div>
+          </article>
+
+          <article class="help-guide-item">
+            <h3>2. 오늘의 혈당 체크 현황</h3>
             <img class="help-guide-image" src="./assets/images/help-0.png" alt="오늘의 혈당 체크 현황 화면" />
             <div class="help-guide-copy">
               <p>하루 동안 필요한 혈당 측정 항목을 체크리스트 형태로 확인할 수 있는 화면입니다.</p>
@@ -249,7 +257,7 @@
           </article>
 
           <article class="help-guide-item">
-            <h3>2. 대시보드</h3>
+            <h3>3. 대시보드</h3>
             <img class="help-guide-image" src="./assets/images/help-1.png" alt="대시보드 화면" />
             <div class="help-guide-copy">
               <p>혈당 수치를 직접 입력하고 측정 정보를 함께 저장하는 화면입니다. 혈당 수치는 mg/dL 단위로 입력하며, 측정 일시를 선택할 수 있습니다.</p>
@@ -259,7 +267,7 @@
           </article>
 
           <article class="help-guide-item">
-            <h3>3. 혈당 기록 목록</h3>
+            <h3>4. 혈당 기록 목록</h3>
             <img class="help-guide-image" src="./assets/images/help-2.png" alt="혈당 기록 목록 화면" />
             <div class="help-guide-copy">
               <p>최근 혈당 기록을 카드 형태로 확인할 수 있는 화면입니다. 각 기록에는 혈당 수치, 측정 시간, 식사 구분, 공복/식후 여부, 운동 여부, 약 복용 여부가 함께 표시됩니다.</p>
@@ -268,7 +276,7 @@
           </article>
 
           <article class="help-guide-item">
-            <h3>4. 혈당 변화 그래프</h3>
+            <h3>5. 혈당 변화 그래프</h3>
             <img class="help-guide-image" src="./assets/images/help-3.png" alt="혈당 변화 그래프 화면" />
             <div class="help-guide-copy">
               <p>주간/월간 단위로 혈당 변화를 한눈에 확인할 수 있는 화면입니다. 공복 혈당과 식후 2시간 후 혈당이 서로 다른 색상으로 표시되며, 날짜별 변화 추이를 쉽게 비교할 수 있습니다.</p>
@@ -277,7 +285,7 @@
           </article>
 
           <article class="help-guide-item">
-            <h3>5. 혈당 분석 인사이트</h3>
+            <h3>6. 혈당 분석 인사이트</h3>
             <img class="help-guide-image" src="./assets/images/help-4.png" alt="혈당 분석 인사이트 화면" />
             <div class="help-guide-copy">
               <p>최근 30일간 입력한 혈당 기록을 바탕으로 주요 패턴을 요약해서 보여주는 화면입니다. 공복 혈당 추세, 식후 혈당 패턴, 혈당이 자주 높게 나타나는 시간대, 목표 범위 비율 등을 확인할 수 있습니다.</p>
@@ -297,6 +305,6 @@
     <script src="/__/firebase/8.10.1/firebase-auth.js"></script>
     <script src="/__/firebase/8.10.1/firebase-firestore.js"></script>
     <script src="/__/firebase/init.js"></script>
-    <script src="./app.js?v=25" defer></script>
+    <script src="./app.js?v=26" defer></script>
   </body>
 </html>
